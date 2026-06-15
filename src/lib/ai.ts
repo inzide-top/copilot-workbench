@@ -4,7 +4,7 @@ import type { AiConfigDraft } from "@/lib/types";
 
 let client: OpenAI | null = null;
 
-export function getAiClient(config?: Partial<AiConfigDraft>) {
+export function getAiClient(config?: Partial<AiConfigDraft>, options?: { allowServerAi?: boolean }) {
   if (config?.apiKey?.trim()) {
     return new OpenAI({
       apiKey: config.apiKey.trim(),
@@ -12,6 +12,7 @@ export function getAiClient(config?: Partial<AiConfigDraft>) {
     });
   }
 
+  if (!options?.allowServerAi) return null;
   if (!process.env.OPENAI_API_KEY) return null;
 
   if (!client) {
@@ -25,7 +26,21 @@ export function getAiClient(config?: Partial<AiConfigDraft>) {
 }
 
 export function getChatModel(config?: Partial<AiConfigDraft>) {
-  return config?.model?.trim() || process.env.OPENAI_MODEL || "gpt-4o-mini";
+  if (config?.apiKey?.trim() && config.model?.trim()) return config.model.trim();
+  return process.env.OPENAI_MODEL || "gpt-4o-mini";
+}
+
+export function shouldAllowServerAi(request: Request) {
+  const host =
+    request.headers.get("x-forwarded-host") ||
+    request.headers.get("host") ||
+    "";
+  return (
+    host.startsWith("copilot-interview.") ||
+    host.startsWith("localhost") ||
+    host.startsWith("127.0.0.1") ||
+    process.env.AI_DEMO_ALLOW_SERVER_KEY === "true"
+  );
 }
 
 export async function generateJson<T>(params: {
@@ -34,10 +49,11 @@ export async function generateJson<T>(params: {
   schema: z.ZodType<T>;
   fallback: T;
   aiConfig?: Partial<AiConfigDraft>;
+  allowServerAi?: boolean;
   maxTokens?: number;
   timeoutMs?: number;
 }) {
-  const ai = getAiClient(params.aiConfig);
+  const ai = getAiClient(params.aiConfig, { allowServerAi: params.allowServerAi });
   if (!ai) return params.fallback;
 
   const timeoutMs = params.timeoutMs;

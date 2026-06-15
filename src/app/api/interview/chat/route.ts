@@ -1,4 +1,4 @@
-import { getAiClient, getChatModel, streamTextChunks } from "@/lib/ai";
+import { getAiClient, getChatModel, shouldAllowServerAi, streamTextChunks } from "@/lib/ai";
 
 export const runtime = "nodejs";
 
@@ -7,7 +7,7 @@ export async function POST(request: Request) {
   const messages = Array.isArray(body.messages) ? body.messages : [];
   const context = typeof body.context === "string" ? body.context : "";
   const aiConfig = typeof body.aiConfig === "object" && body.aiConfig ? body.aiConfig : undefined;
-  const ai = getAiClient(aiConfig);
+  const ai = getAiClient(aiConfig, { allowServerAi: shouldAllowServerAi(request) });
 
   if (!ai) {
     return new Response(

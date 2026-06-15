@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { analyzeJdFallback, extractCoreJdForMatching } from "@/lib/fallbacks";
-import { generateJson } from "@/lib/ai";
+import { generateJson, shouldAllowServerAi } from "@/lib/ai";
 
 const RequestSchema = z.object({
   jd: z.string().min(20),
@@ -37,6 +37,7 @@ export async function POST(request: Request) {
     fallback,
     schema: AnalysisSchema,
     aiConfig: parsed.data.aiConfig,
+    allowServerAi: shouldAllowServerAi(request),
     system:
       "你是资深求职教练和技术面试官。分析匹配度时只能依据岗位职责、工作内容、任职要求、岗位要求、任职资格、加分项。必须忽略公司介绍、团队介绍、团队阶段、企业文化、福利待遇、招聘流程、工作地点、宣传口号等噪声。",
     prompt: JSON.stringify({

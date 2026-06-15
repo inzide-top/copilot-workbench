@@ -236,6 +236,14 @@ const priorityTone: Record<ApplicationPriority, string> = {
 const storageKey = "interview-copilot-workbench-v1";
 const aiConfigStorageKey = "interview-copilot-ai-config-v1";
 const defaultResumeId = "resume-default";
+const demoResumePath = "/examples/sample-resume.pdf";
+const demoJdPath = "/examples/sample-jd.png";
+const demoAiConfig: AiConfigDraft = {
+  provider: "deepseek",
+  apiKey: "",
+  baseUrl: "https://api.deepseek.com",
+  model: "deepseek-v4-pro",
+};
 const starterInterviewMessage: InterviewMessageDraft = {
   id: "starter-intro",
   role: "assistant",
@@ -400,6 +408,13 @@ async function parseImportedText<T>(kind: "resume" | "jd", text: string, aiConfi
   return (await response.json()) as T;
 }
 
+async function loadPublicExampleFile(path: string, fileName: string, fallbackType: string) {
+  const response = await fetch(path, { cache: "no-store" });
+  if (!response.ok) throw new Error("示例文件加载失败，请稍后重试。");
+  const blob = await response.blob();
+  return new File([blob], fileName, { type: blob.type || fallbackType });
+}
+
 export function InterviewWorkbench() {
   const [activeSection, setActiveSection] = useState<Section>("overview");
   const [resumes, setResumes] = useState<ResumeDraft[]>([defaultResume()]);
@@ -416,6 +431,7 @@ export function InterviewWorkbench() {
   const [scorePanel, setScorePanel] = useState<{ title: string; score: InterviewScore } | null>(null);
   const [scoringMessageId, setScoringMessageId] = useState("");
   const [pitchToast, setPitchToast] = useState<{ jdId: string; title: string } | null>(null);
+  const [isDemoMode, setIsDemoMode] = useState(false);
   const [applicationDraft, setApplicationDraft] = useState<ApplicationDraft>(newApplication);
   const [aiConfig, setAiConfig] = useState<AiConfigDraft>(defaultAiConfig);
   const [aiConfigStatus, setAiConfigStatus] = useState("未配置 API Key 时使用本地模拟结果");
@@ -517,6 +533,13 @@ export function InterviewWorkbench() {
   }, []);
 
   useEffect(() => {
+    void Promise.resolve().then(() => {
+      const host = window.location.hostname;
+      setIsDemoMode(host.startsWith("copilot-interview.") || host === "localhost" || host === "127.0.0.1");
+    });
+  }, []);
+
+  useEffect(() => {
     let cancelled = false;
 
     void Promise.resolve().then(() => {
@@ -537,6 +560,14 @@ export function InterviewWorkbench() {
       cancelled = true;
     };
   }, []);
+
+  useEffect(() => {
+    if (!isDemoMode || aiConfig.apiKey.trim()) return;
+    void Promise.resolve().then(() => {
+      setAiConfig((current) => (current.apiKey.trim() ? current : { ...demoAiConfig }));
+      setAiConfigStatus("面试演示站已启用服务端 DeepSeek 模型，可直接体验分析、生成和模拟面试。");
+    });
+  }, [aiConfig.apiKey, isDemoMode]);
 
   useEffect(() => {
     window.localStorage.setItem(storageKey, JSON.stringify(snapshot));
@@ -797,6 +828,16 @@ export function InterviewWorkbench() {
     }
   }
 
+  async function applyResumeExample() {
+    try {
+      const file = await loadPublicExampleFile(demoResumePath, "张三-前端开发-示例.pdf", "application/pdf");
+      await handleResumeFile(file);
+    } catch (error) {
+      setResumeImportStatus(error instanceof Error ? error.message : "示例简历加载失败。");
+      setResumeImportProgress(null);
+    }
+  }
+
   async function handleJdFile(file?: File) {
     if (!file) return;
     setIsLoading("jd-import");
@@ -834,6 +875,16 @@ export function InterviewWorkbench() {
       setJdCompanyWarning(jdDraft.company ? "" : "缺少公司");
     } finally {
       setIsLoading(null);
+    }
+  }
+
+  async function applyJdExample() {
+    try {
+      const file = await loadPublicExampleFile(demoJdPath, "redshop-前端开发-JD.png", "image/png");
+      await handleJdFile(file);
+    } catch (error) {
+      setJdImportStatus(error instanceof Error ? error.message : "示例 JD 加载失败。");
+      setJdImportProgress(null);
     }
   }
 
@@ -1287,6 +1338,7 @@ export function InterviewWorkbench() {
                 applications={applications}
                 averageMatch={averageMatch}
                 currentJd={currentJd}
+                isDemoMode={isDemoMode}
                 profile={profile}
                 projects={projects}
                 resumeTitle={activeResume.title}
@@ -1297,11 +1349,13 @@ export function InterviewWorkbench() {
               <ProfileProjects
                 addProject={addProject}
                 addResume={requestAddResume}
+                applyResumeExample={applyResumeExample}
                 activeResume={activeResume}
                 activeResumeId={activeResumeId}
                 confirmPendingProjects={confirmPendingProjects}
                 draftProject={draftProject}
                 handleResumeFile={handleResumeFile}
+                isDemoMode={isDemoMode}
                 isImporting={isLoading === "resume-import"}
                 pendingImportedProjects={pendingImportedProjects}
                 profile={profile}
@@ -1328,8 +1382,10 @@ export function InterviewWorkbench() {
             {activeSection === "jd" && (
               <JdPanel
                 analyzeJd={analyzeJd}
+                applyJdExample={applyJdExample}
                 currentJd={currentJd}
                 handleJdFile={handleJdFile}
+                isDemoMode={isDemoMode}
                 isLoading={isLoading === "jd"}
                 isImporting={isLoading === "jd-import"}
                 jdCompanyWarning={jdCompanyWarning}
@@ -1403,6 +1459,7 @@ function Overview(props: {
   applications: ApplicationDraft[];
   averageMatch: number;
   currentJd?: JobDescriptionDraft;
+  isDemoMode: boolean;
   profile: ProfileDraft;
   projects: ProjectDraft[];
   resumeTitle: string;
@@ -1432,6 +1489,21 @@ function Overview(props: {
 
   return (
     <div className="grid gap-4">
+      {props.isDemoMode ? (
+        <Card className="border-emerald-500/25 bg-emerald-500/5">
+          <CardHeader>
+            <CardTitle>面试官体验 Demo</CardTitle>
+            <CardDescription>
+              这是 AI 求职/面试 Copilot 的演示站，已准备示例简历和示例 JD，可直接体验从导入、匹配分析、话术生成到模拟面试的完整工作流。
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="grid gap-3 md:grid-cols-2">
+            <Insight text="简历项目页和 JD 分析页提供“应用示例”按钮，无需上传真实个人资料即可体验。" />
+            <Insight text="演示站已接入服务端 DeepSeek 模型配置，未填写个人 API Key 也可以体验 AI 分析、生成和流式面试。" />
+          </CardContent>
+        </Card>
+      ) : null}
+
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <MetricCard label="当前简历素材度" value={`${materialScore}%`} hint={`${props.resumeTitle || "当前简历"} · 联系方式、正文、摘要、项目共同计算`} />
         <MetricCard label="项目素材" value={`${props.projects.length}`} hint="建议准备 2-3 个可深挖项目" />
@@ -1513,11 +1585,13 @@ function MetricCard(props: { label: string; value: string; hint: string }) {
 function ProfileProjects(props: {
   addProject: () => void;
   addResume: () => void;
+  applyResumeExample: () => void;
   activeResume: ResumeDraft;
   activeResumeId: string;
   confirmPendingProjects: () => void;
   draftProject: ProjectDraft;
   handleResumeFile: (file?: File) => void;
+  isDemoMode: boolean;
   isImporting: boolean;
   pendingImportedProjects: ProjectDraft[];
   profile: ProfileDraft;
@@ -1564,6 +1638,12 @@ function ProfileProjects(props: {
                 <Save className="size-4" />
                 保存简历
               </Button>
+              {props.isDemoMode ? (
+                <Button variant="secondary" size="sm" onClick={props.applyResumeExample} disabled={props.isImporting}>
+                  {props.isImporting ? <Loader2 className="size-4 animate-spin" /> : <FileText className="size-4" />}
+                  应用示例
+                </Button>
+              ) : null}
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Button asChild variant="outline" size="sm">
@@ -1773,8 +1853,10 @@ function TextareaField(props: { label: string; value: string; onChange: (value: 
 
 function JdPanel(props: {
   analyzeJd: () => void;
+  applyJdExample: () => void;
   currentJd?: JobDescriptionDraft;
   handleJdFile: (file?: File) => void;
+  isDemoMode: boolean;
   isImporting: boolean;
   isLoading: boolean;
   jdCompanyWarning: string;
@@ -1797,11 +1879,19 @@ function JdPanel(props: {
             <CardTitle>粘贴 JD</CardTitle>
             <CardDescription>输入公司、岗位和完整 JD，也可以直接导入截图、PDF 或文本。</CardDescription>
           </div>
-          <label className="inline-flex h-9 shrink-0 cursor-pointer items-center justify-center gap-2 rounded-md border px-3 text-sm text-muted-foreground hover:bg-muted">
-            {props.isImporting ? <Loader2 className="size-4 animate-spin" /> : <Upload className="size-4" />}
-            导入 JD 截图/文件
-            <input className="hidden" type="file" accept={getSupportedImportAccept("jd")} onChange={(event) => props.handleJdFile(event.target.files?.[0])} />
-          </label>
+          <div className="flex flex-wrap gap-2">
+            {props.isDemoMode ? (
+              <Button variant="secondary" size="sm" onClick={props.applyJdExample} disabled={props.isImporting}>
+                {props.isImporting ? <Loader2 className="size-4 animate-spin" /> : <FileText className="size-4" />}
+                应用示例
+              </Button>
+            ) : null}
+            <label className="inline-flex h-9 shrink-0 cursor-pointer items-center justify-center gap-2 rounded-md border px-3 text-sm text-muted-foreground hover:bg-muted">
+              {props.isImporting ? <Loader2 className="size-4 animate-spin" /> : <Upload className="size-4" />}
+              导入 JD 截图/文件
+              <input className="hidden" type="file" accept={getSupportedImportAccept("jd")} onChange={(event) => props.handleJdFile(event.target.files?.[0])} />
+            </label>
+          </div>
         </CardHeader>
         <CardContent className="grid gap-3">
           <div className="grid gap-2">

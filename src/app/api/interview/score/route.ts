@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { generateJson } from "@/lib/ai";
+import { generateJson, shouldAllowServerAi } from "@/lib/ai";
 import { scoreFallback } from "@/lib/fallbacks";
 
 const RequestSchema = z.object({
@@ -35,6 +35,7 @@ export async function POST(request: Request) {
     fallback,
     schema: ScoreSchema,
     aiConfig: parsed.data.aiConfig,
+    allowServerAi: shouldAllowServerAi(request),
     system: "你是严格但建设性的技术面试官，按结构、技术深度、业务影响、风险意识评分。",
     prompt: JSON.stringify({
       task: "为候选人的面试回答打分，给出四个维度、总分和可行动反馈。",

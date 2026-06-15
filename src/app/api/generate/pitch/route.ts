@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { generateJson } from "@/lib/ai";
+import { generateJson, shouldAllowServerAi } from "@/lib/ai";
 import { pitchFallback } from "@/lib/fallbacks";
 
 const RequestSchema = z.object({
@@ -37,6 +37,7 @@ export async function POST(request: Request) {
     fallback,
     schema: PitchSchema,
     aiConfig: parsed.data.aiConfig,
+    allowServerAi: shouldAllowServerAi(request),
     maxTokens: 1800,
     timeoutMs: 16000,
     system:
