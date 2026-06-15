@@ -1,0 +1,125 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+enum ApplicationStatus {
+  SAVED
+  APPLIED
+  INTERVIEWING
+  OFFER
+  REJECTED
+  ARCHIVED
+}
+
+model Profile {
+  id         String   @id @default(cuid())
+  name       String   @default("")
+  headline   String   @default("")
+  location   String   @default("")
+  email      String   @default("")
+  phone      String   @default("")
+  summary    String   @default("")
+  resumeText String   @default("")
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+
+model Resume {
+  id         String   @id @default(cuid())
+  title      String   @default("默认简历")
+  targetRole String   @default("")
+  name       String   @default("")
+  headline   String   @default("")
+  location   String   @default("")
+  email      String   @default("")
+  phone      String   @default("")
+  summary    String   @default("")
+  resumeText String   @default("")
+  projects   Json?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+
+model Project {
+  id            String   @id @default(cuid())
+  title         String
+  role          String   @default("")
+  stack         String[] @default([])
+  challenge     String   @default("")
+  actions       String   @default("")
+  impact        String   @default("")
+  talkingPoints String   @default("")
+  embedding     Json?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+model JobDescription {
+  id         String        @id @default(cuid())
+  company    String
+  role       String
+  rawText    String
+  resumeId   String?
+  resumeTitle String?
+  keywords   String[]      @default([])
+  gaps       String[]      @default([])
+  matchScore Int?
+  analysis   Json?
+  analysisStatus String    @default("DONE")
+  pitch      Json?
+  pitchStatus String       @default("")
+  pitchUpdatedAt DateTime?
+  interview  Json?
+  embedding  Json?
+  createdAt  DateTime      @default(now())
+  updatedAt  DateTime      @updatedAt
+  applications Application[]
+  sessions   InterviewSession[]
+}
+
+model InterviewSession {
+  id               String             @id @default(cuid())
+  title            String
+  jobDescriptionId String?
+  jobDescription   JobDescription?    @relation(fields: [jobDescriptionId], references: [id], onDelete: SetNull)
+  score            Json?
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
+  messages         InterviewMessage[]
+}
+
+model InterviewMessage {
+  id        String           @id @default(cuid())
+  sessionId String
+  session   InterviewSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  role      String
+  content   String
+  createdAt DateTime         @default(now())
+}
+
+model Application {
+  id               String             @id @default(cuid())
+  company          String
+  role             String
+  status           ApplicationStatus  @default(SAVED)
+  jobDescriptionId String?
+  jobDescription   JobDescription?    @relation(fields: [jobDescriptionId], references: [id], onDelete: SetNull)
+  industry         String             @default("")
+  priority         String             @default("B")
+  region           String             @default("")
+  city             String             @default("")
+  notes            String             @default("")
+  retrospective    String             @default("")
+  statusReviews    Json?
+  nextAction       String             @default("")
+  interviewRounds  Json?
+  appliedAt        DateTime?
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
+}
