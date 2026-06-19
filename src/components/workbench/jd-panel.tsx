@@ -1,4 +1,5 @@
 import { FileText, Gauge, Loader2, Upload } from "lucide-react";
+import type { ChangeEvent } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -34,6 +35,12 @@ export function JdPanel(props: {
   setSelectedResumeId: (id: string) => void;
   setJdDraft: (draft: { company: string; role: string; rawText: string }) => void;
 }) {
+  function handleJdImportChange(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.currentTarget.files?.[0];
+    event.currentTarget.value = "";
+    props.handleJdFile(file);
+  }
+
   return (
     <div className="grid gap-4 xl:grid-cols-[0.9fr_1.1fr]">
       <Card>
@@ -53,7 +60,12 @@ export function JdPanel(props: {
               <label className="cursor-pointer">
                 {props.isImporting ? <Loader2 className="size-4 animate-spin" /> : <Upload className="size-4" />}
                 导入 JD 截图/文件
-                <input className="hidden" type="file" accept={getSupportedImportAccept("jd")} onChange={(event) => props.handleJdFile(event.target.files?.[0])} />
+                <input
+                  className="hidden"
+                  type="file"
+                  accept={getSupportedImportAccept("jd")}
+                  onChange={handleJdImportChange}
+                />
               </label>
             </Button>
           </div>

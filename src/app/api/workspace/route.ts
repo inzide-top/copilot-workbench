@@ -6,7 +6,16 @@ function toIsoString(value: Date | string | null | undefined) {
   return value instanceof Date ? value.toISOString() : value;
 }
 
-export async function GET() {
+function canUseWorkspaceDatabase(request: Request) {
+  const host = request.headers.get("host")?.split(":")[0] ?? "";
+  return host.startsWith("copilot-interview.") || host === "localhost" || host === "127.0.0.1";
+}
+
+export async function GET(request: Request) {
+  if (!canUseWorkspaceDatabase(request)) {
+    return NextResponse.json({ databaseConfigured: false, snapshot: null });
+  }
+
   if (!hasDatabaseUrl()) {
     return NextResponse.json({ databaseConfigured: false, snapshot: null });
   }
@@ -98,6 +107,14 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
+  if (!canUseWorkspaceDatabase(request)) {
+    return NextResponse.json({
+      databaseConfigured: false,
+      saved: false,
+      message: "当前站点仅使用浏览器本地持久化。",
+    });
+  }
+
   if (!hasDatabaseUrl()) {
     return NextResponse.json({
       databaseConfigured: false,

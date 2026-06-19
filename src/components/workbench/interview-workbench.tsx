@@ -54,6 +54,10 @@ import { SettingsPanel } from "./settings-panel";
 import { WorkbenchChrome } from "./workbench-chrome";
 import type { Section } from "./workbench-types";
 
+function shouldUseDatabaseSync(hostname: string) {
+  return hostname.startsWith("copilot-interview.") || hostname === "localhost" || hostname === "127.0.0.1";
+}
+
 export function InterviewWorkbench() {
   const [activeSection, setActiveSection] = useState<Section>("overview");
   const [resumes, setResumes] = useState<ResumeDraft[]>([defaultResume()]);
@@ -71,6 +75,9 @@ export function InterviewWorkbench() {
   const [scoringMessageId, setScoringMessageId] = useState("");
   const [pitchToast, setPitchToast] = useState<{ jdId: string; title: string } | null>(null);
   const [isDemoMode, setIsDemoMode] = useState(false);
+  const [canSyncDatabase, setCanSyncDatabase] = useState(() =>
+    typeof window === "undefined" ? false : shouldUseDatabaseSync(window.location.hostname),
+  );
   const [applicationDraft, setApplicationDraft] = useState<ApplicationDraft>(newApplication);
   const [aiConfig, setAiConfig] = useState<AiConfigDraft>(defaultAiConfig);
   const [aiConfigStatus, setAiConfigStatus] = useState("未配置 API Key 时使用本地模拟结果");
@@ -151,6 +158,16 @@ export function InterviewWorkbench() {
       }
     });
 
+    const canLoadDatabase = shouldUseDatabaseSync(window.location.hostname);
+    if (!canLoadDatabase) {
+      void Promise.resolve().then(() => {
+        if (!cancelled) setSaveState("仅保存在当前浏览器");
+      });
+      return () => {
+        cancelled = true;
+      };
+    }
+
     void fetch("/api/workspace")
       .then((response) => response.json())
       .then((result: { databaseConfigured?: boolean; snapshot?: WorkspaceSnapshot | null }) => {
@@ -174,7 +191,9 @@ export function InterviewWorkbench() {
   useEffect(() => {
     void Promise.resolve().then(() => {
       const host = window.location.hostname;
-      setIsDemoMode(host.startsWith("copilot-interview.") || host === "localhost" || host === "127.0.0.1");
+      const canUseSharedDemoServices = shouldUseDatabaseSync(host);
+      setIsDemoMode(canUseSharedDemoServices);
+      setCanSyncDatabase(canUseSharedDemoServices);
     });
   }, []);
 
@@ -248,6 +267,11 @@ export function InterviewWorkbench() {
   }, []);
 
   async function saveToDatabase() {
+    if (!canSyncDatabase) {
+      setSaveState("当前站点仅使用浏览器本地保存");
+      return;
+    }
+
     setIsLoading("save");
     try {
       const response = await fetch("/api/workspace", {
@@ -840,6 +864,7 @@ export function InterviewWorkbench() {
     <WorkbenchChrome
       activeSection={activeSection}
       isSaving={isLoading === "save"}
+      canSyncDatabase={canSyncDatabase}
       newResumeDialogOpen={newResumeDialogOpen}
       pendingProjectsDialogOpen={pendingProjectsDialogOpen}
       performAddResume={performAddResume}

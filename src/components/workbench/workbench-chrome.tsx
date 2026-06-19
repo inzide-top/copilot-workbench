@@ -15,6 +15,7 @@ import type { Section } from "./workbench-types";
 
 export function WorkbenchChrome(props: {
   activeSection: Section;
+  canSyncDatabase: boolean;
   children: ReactNode;
   isSaving: boolean;
   newResumeDialogOpen: boolean;
@@ -145,10 +146,12 @@ export function WorkbenchChrome(props: {
                 <ClipboardCheck className="size-4 text-emerald-300" />
                 {props.saveState}
               </div>
-              <Button className="mt-3 w-full" size="sm" onClick={props.saveToDatabase} disabled={props.isSaving}>
-                {props.isSaving ? <Loader2 className="size-4 animate-spin" /> : <Save className="size-4" />}
-                同步数据库
-              </Button>
+              {props.canSyncDatabase ? (
+                <Button className="mt-3 w-full" size="sm" onClick={props.saveToDatabase} disabled={props.isSaving}>
+                  {props.isSaving ? <Loader2 className="size-4 animate-spin" /> : <Save className="size-4" />}
+                  同步数据库
+                </Button>
+              ) : null}
             </div>
           </div>
         </aside>

@@ -1,5 +1,5 @@
 import { FileText, Loader2, Plus, Save, Upload } from "lucide-react";
-import { useState } from "react";
+import { useState, type ChangeEvent } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -50,6 +50,12 @@ export function ProfileProjectsPanel(props: {
     setEditingProject(null);
   }
 
+  function handleResumeImportChange(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.currentTarget.files?.[0];
+    event.currentTarget.value = "";
+    props.handleResumeFile(file);
+  }
+
   return (
     <>
       <div className="grid items-start gap-4 xl:grid-cols-[0.95fr_1.05fr]">
@@ -81,7 +87,12 @@ export function ProfileProjectsPanel(props: {
                       <label className="cursor-pointer">
                         {props.isImporting ? <Loader2 className="size-4 animate-spin" /> : <Upload className="size-4" />}
                         导入简历
-                        <input className="hidden" type="file" accept={getSupportedImportAccept("resume")} onChange={(event) => props.handleResumeFile(event.target.files?.[0])} />
+                        <input
+                          className="hidden"
+                          type="file"
+                          accept={getSupportedImportAccept("resume")}
+                          onChange={handleResumeImportChange}
+                        />
                       </label>
                     </Button>
                   </TooltipTrigger>
